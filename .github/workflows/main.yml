@@ -1,7 +1,6 @@
 name: Trellis Generator Auto-Run
 
 on:
-  # Manual trigger (with optional auto-continue)
   workflow_dispatch:
     inputs:
       confirm:
@@ -17,54 +16,59 @@ on:
 
 jobs:
   generate:
-    runs-on: ubuntu-latest            # GitHub-hosted runner
-    timeout-minutes: 360              # Safety hard-stop (6 h)
+    runs-on: ubuntu-latest
+    timeout-minutes: 360        # 6 h safety stop
 
     outputs:
       should_continue: ${{ steps.check-continue.outputs.should_continue }}
 
     steps:
-    # ────────────────────────────────────────────────
+    # ───────────────────────────────────────────────
     - name: Checkout repository
       uses: actions/checkout@v3
 
-    # Optional: bump to 3.10+ if you ever upgrade gradio_client
-    - name: Set up Python
+    - name: Set up Python 3.10
       uses: actions/setup-python@v4
       with:
-        python-version: '3.9'
+        python-version: '3.10'
 
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements_trellis.txt
 
-    # ─── Mask the full Trellis URL so it never prints ───
-    - name: Mask secret
-      run: echo "::add-mask::$TRELLIS_API_URL"
+    # ── Mask secrets so they never appear in logs ──
+    - name: Mask secrets
+      run: |
+        echo "::add-mask::$RUNPOD_USERNAME"
+        echo "::add-mask::$RUNPOD_PASSWORD"
+        echo "::add-mask::$TRELLIS_API_URL"
       env:
-        TRELLIS_API_URL: ${{ secrets.TRELLIS_API_URL }}
+        RUNPOD_USERNAME:  ${{ secrets.RUNPOD_USERNAME }}
+        RUNPOD_PASSWORD:  ${{ secrets.RUNPOD_PASSWORD }}
+        TRELLIS_API_URL:  ${{ secrets.TRELLIS_API_URL }}
 
-    # ─── Main run ───
-    - name: Run Trellis Generator (5 h 55 m limit)
+    # ── Main run (5 h 55 m limit) ──
+    - name: Run Trellis Generator
       if: ${{ github.event.inputs.confirm == 'yes' }}
       env:
-        SUPABASE_URL:          ${{ secrets.SUPABASE_URL }}
-        SUPABASE_SERVICE_KEY:  ${{ secrets.SUPABASE_SERVICE_KEY }}
-        TRELLIS_API_URL:       ${{ secrets.TRELLIS_API_URL }}
+        SUPABASE_URL:         ${{ secrets.SUPABASE_URL }}
+        SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        TRELLIS_API_URL:      ${{ secrets.TRELLIS_API_URL }}
+        RUNPOD_USERNAME:      ${{ secrets.RUNPOD_USERNAME }}
+        RUNPOD_PASSWORD:      ${{ secrets.RUNPOD_PASSWORD }}
       run: |
         echo "🚀 Starting Trellis 3D Generation"
-        echo "⏰ Will run for up to 5 h 55 m"
+        echo "⏰ Will run for up to 5 h 55 m"
         echo "Job started at: $(date)"
 
-        # 5 h 55 m = 21 300 s; SIGTERM first, SIGKILL after 30 s grace
+        # 5 h 55 m = 21 300 s
         timeout --signal=SIGTERM --kill-after=30s 21300 \
                 python trellis_3d_generator_simple.py || EXIT_CODE=$?
 
-        # Interpret exit code
         if [ "${EXIT_CODE:-0}" -eq 124 ]; then
           echo "⏰ Time limit reached – will continue in next run"
-          echo "TIMEOUT_REACHED=true" >> $GITHUB_ENV
+          echo "TIMEOUT_REACHED=true"  >> $GITHUB_ENV
         elif [ "${EXIT_CODE:-0}" -eq 0 ]; then
           echo "✅ Processing completed successfully"
           echo "TIMEOUT_REACHED=false" >> $GITHUB_ENV
@@ -73,7 +77,7 @@ jobs:
           exit ${EXIT_CODE:-1}
         fi
 
-    # ─── Decide whether to re-queue ───
+    # ── Decide whether to re‑queue ──
     - name: Check if should continue
       id: check-continue
       run: |
@@ -86,7 +90,7 @@ jobs:
           echo "🏁 Processing finished or auto-continue disabled."
         fi
 
-  # ────────────────────────────────────────────────
+  # ───────────────────────────────────────────────
   trigger-next-run:
     needs: generate
     if: ${{ needs.generate.outputs.should_continue == 'true' }}
@@ -100,8 +104,8 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        echo "🔄 Triggering follow-up workflow run..."
-        sleep 30   # avoid API rate-limit bursts
+        echo "🔄 Triggering follow‑up workflow run..."
+        sleep 30   # avoid API rate‑limit bursts
 
         curl -X POST \
           -H "Accept: application/vnd.github+json" \
