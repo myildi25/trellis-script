@@ -1,18 +1,29 @@
-name: Run Trellis Generator Once
+name: Trellis Generator Auto-Run
 
 on:
-  # Only manual trigger - no automatic runs
+  # Manual trigger with auto-continue option
   workflow_dispatch:
     inputs:
       confirm:
-        description: 'Type "yes" to confirm running the full script'
+        description: 'Type "yes" to start processing'
         required: true
         default: 'no'
+      auto_continue:
+        description: 'Automatically continue if time limit reached?'
+        required: true
+        default: 'yes'
+        type: choice
+        options:
+          - 'yes'
+          - 'no'
 
 jobs:
-  run-once:
+  generate:
     runs-on: ubuntu-latest
-    timeout-minutes: 360  # 6 hours max (GitHub's limit)
+    timeout-minutes: 360  # GitHub's hard limit (as safety)
+    
+    outputs:
+      should_continue: ${{ steps.check-continue.outputs.should_continue }}
     
     steps:
     - name: Checkout code
@@ -28,14 +39,74 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements_trellis.txt
     
-    - name: Run Trellis Generator Until Complete
+    - name: Run Trellis Generator (5h 55m limit)
       if: ${{ github.event.inputs.confirm == 'yes' }}
       env:
         SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
         SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        TRELLIS_API_URL: ${{ secrets.TRELLIS_API_URL }}
       run: |
-        echo "🚀 Starting Trellis 3D Generation - Running until complete"
-        echo "This will process ALL pending items"
-        # Run without limit - process everything
-        python trellis_3d_generator_simple.py
-        echo "✅ Processing complete!"
+        echo "🚀 Starting Trellis 3D Generation"
+        echo "⏰ Will run for up to 5 hours 55 minutes"
+        echo "This job started at: $(date)"
+        
+        # Run with timeout of 5h 55m (355 minutes = 21300 seconds)
+        # The timeout command will gracefully kill the process
+        timeout --signal=SIGTERM --kill-after=30s 21300 python trellis_3d_generator_simple.py || EXIT_CODE=$?
+        
+        # Check if it was killed by timeout (exit code 124)
+        if [ "${EXIT_CODE:-0}" -eq 124 ]; then
+          echo "⏰ Time limit reached after 5h 55m - script will continue in next run"
+          echo "TIMEOUT_REACHED=true" >> $GITHUB_ENV
+        elif [ "${EXIT_CODE:-0}" -eq 0 ]; then
+          echo "✅ Processing completed successfully!"
+          echo "TIMEOUT_REACHED=false" >> $GITHUB_ENV
+        else
+          echo "❌ Script failed with exit code: ${EXIT_CODE:-0}"
+          exit ${EXIT_CODE:-1}
+        fi
+    
+    - name: Check if should continue
+      id: check-continue
+      run: |
+        if [[ "${{ env.TIMEOUT_REACHED }}" == "true" ]] && [[ "${{ github.event.inputs.auto_continue }}" == "yes" ]]; then
+          echo "should_continue=true" >> $GITHUB_OUTPUT
+          echo "📊 Will trigger another run to continue processing"
+        else
+          echo "should_continue=false" >> $GITHUB_OUTPUT
+          echo "🏁 Processing finished or auto-continue disabled"
+        fi
+
+  trigger-next-run:
+    needs: generate
+    if: ${{ needs.generate.outputs.should_continue == 'true' }}
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      
+    - name: Trigger next run
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        echo "🔄 Triggering next run to continue processing..."
+        
+        # Wait 30 seconds to avoid rate limits
+        sleep 30
+        
+        # Trigger the workflow again
+        curl -X POST \
+          -H "Accept: application/vnd.github+json" \
+          -H "Authorization: Bearer $GITHUB_TOKEN" \
+          -H "X-GitHub-Api-Version: 2022-11-28" \
+          "https://api.github.com/repos/${{ github.repository }}/actions/workflows/trellis-autorun.yml/dispatches" \
+          -d '{
+            "ref": "${{ github.ref }}",
+            "inputs": {
+              "confirm": "yes",
+              "auto_continue": "${{ github.event.inputs.auto_continue }}"
+            }
+          }'
+        
+        echo "✅ Next run triggered successfully!"
