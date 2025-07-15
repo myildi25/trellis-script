@@ -203,39 +203,39 @@ class TrellisGenerator:
             raise
             
     def generate_3d_model(self, item: Dict) -> str:
-        """Generate 3D model using Trellis API"""
-        try:
-            # Download primary image
-            image_path = self.download_image(item['single_image_1_url'])
-            
-            self.logger.info(f"Generating 3D model for {item['zuo_item_no']}")
-            
-            # Call Trellis API with your specific parameters
-            result = self.trellis_client.predict(
-                input_image=handle_file(image_path),
-                seed=self.config['SEED'],
-                randomize_seed=self.config['RANDOMIZE_SEED'],
-                ss_guidance_strength=self.config['SS_GUIDANCE_STRENGTH'],
-                ss_sampling_steps=int(self.config['SS_SAMPLING_STEPS']),  # Ensure integer
-                slat_guidance_strength=self.config['SLAT_GUIDANCE_STRENGTH'],
-                slat_sampling_steps=int(self.config['SLAT_SAMPLING_STEPS']),  # Ensure integer
-                mesh_simplify=self.config['MESH_SIMPLIFY'],
-                texture_size=int(self.config['TEXTURE_SIZE']),  # Ensure integer
-                api_name="/generate_wrapper"
-            )
-            
-            # Clean up temp image
-            os.unlink(image_path)
-            
-            # Result is a tuple: (video_dict, glb_filepath)
-            video_result, glb_filepath = result
-            
-            self.logger.info(f"3D model generated successfully for {item['zuo_item_no']}")
-            return glb_filepath
-            
-        except Exception as e:
-            self.logger.error(f"Failed to generate 3D model for {item['zuo_item_no']}: {e}")
-            raise
+       """Generate 3D model using Trellis API"""
+       try:
+           # Download primary image
+           image_path = self.download_image(item['single_image_1_url'])
+           
+           self.logger.info(f"Generating 3D model for {item['zuo_item_no']}")
+           
+           # For gradio_client 0.5.3, use positional arguments
+           result = self.trellis_client.predict(
+               handle_file(image_path),  # image
+               self.config['SEED'],
+               self.config['RANDOMIZE_SEED'],
+               self.config['SS_GUIDANCE_STRENGTH'],
+               int(self.config['SS_SAMPLING_STEPS']),
+               self.config['SLAT_GUIDANCE_STRENGTH'],
+               int(self.config['SLAT_SAMPLING_STEPS']),
+               self.config['MESH_SIMPLIFY'],
+               int(self.config['TEXTURE_SIZE']),
+               api_name="/generate_wrapper"
+           )
+           
+           # Clean up temp image
+           os.unlink(image_path)
+           
+           # Result is a tuple: (video_dict, glb_filepath)
+           video_result, glb_filepath = result
+           
+           self.logger.info(f"3D model generated successfully for {item['zuo_item_no']}")
+           return glb_filepath
+           
+       except Exception as e:
+           self.logger.error(f"Failed to generate 3D model for {item['zuo_item_no']}: {e}")
+           raise
             
     def upload_to_supabase(self, item: Dict, glb_filepath: str) -> str:
         """Upload GLB file to Supabase storage"""
