@@ -10,6 +10,7 @@ Setup:
 1. Set environment variables:
    - SUPABASE_URL=your_supabase_url
    - SUPABASE_SERVICE_KEY=your_service_key
+   - TRELLIS_API_URL=your_trellis_api_url
    
 2. Install dependencies:
    pip install -r requirements_trellis.txt
@@ -28,9 +29,24 @@ import tempfile
 import requests
 from typing import List, Dict, Optional, Tuple
 
-# Third-party imports
+# Third-party imports with compatibility handling
 try:
     from gradio_client import Client, handle_file
+except ImportError:
+    try:
+        from gradio_client import Client
+        try:
+            from gradio_client import file
+            handle_file = file
+        except ImportError:
+            # For older versions, just use the path directly
+            handle_file = lambda x: x
+    except ImportError as e:
+        print(f"Missing required dependencies: {e}")
+        print("Install with: pip install -r requirements_trellis.txt")
+        sys.exit(1)
+
+try:
     from supabase import create_client
     from dotenv import load_dotenv
 except ImportError as e:
@@ -86,8 +102,12 @@ class TrellisGenerator:
             'RETRY_DELAY': 30
         }
         
+        # Check all required environment variables
         if not self.config['SUPABASE_URL'] or not self.config['SUPABASE_SERVICE_KEY']:
             raise ValueError("Missing Supabase configuration. Set SUPABASE_URL and SUPABASE_SERVICE_KEY environment variables.")
+        
+        if not self.config['TRELLIS_API_URL']:
+            raise ValueError("Missing TRELLIS_API_URL environment variable.")
         
     def setup_clients(self):
         """Initialize API clients"""
@@ -420,4 +440,4 @@ def main():
     generator.run(limit=args.limit, test_mode=args.test)
 
 if __name__ == "__main__":
-    main() 
+    main()
