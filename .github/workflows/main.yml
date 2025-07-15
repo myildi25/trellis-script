@@ -1,0 +1,41 @@
+name: Run Trellis Generator Once
+
+on:
+  # Only manual trigger - no automatic runs
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "yes" to confirm running the full script'
+        required: true
+        default: 'no'
+
+jobs:
+  run-once:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360  # 6 hours max (GitHub's limit)
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements_trellis.txt
+    
+    - name: Run Trellis Generator Until Complete
+      if: ${{ github.event.inputs.confirm == 'yes' }}
+      env:
+        SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+        SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+      run: |
+        echo "🚀 Starting Trellis 3D Generation - Running until complete"
+        echo "This will process ALL pending items"
+        # Run without limit - process everything
+        python trellis_3d_generator_simple.py
+        echo "✅ Processing complete!"
