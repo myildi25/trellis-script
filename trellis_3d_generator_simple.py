@@ -63,7 +63,7 @@ class TrellisGenerator:
         """Setup configuration"""
         self.config = {
             # Trellis API
-            'TRELLIS_API_URL': "https://ygr2qv52nkrj75-7860.proxy.runpod.net/",
+            'TRELLIS_API_URL': os.getenv('TRELLIS_API_URL'),
             
             # 3D Generation Parameters (from your screenshot)
             'SEED': 0,
