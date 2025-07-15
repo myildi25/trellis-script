@@ -23,7 +23,7 @@ jobs:
       should_continue: ${{ steps.check-continue.outputs.should_continue }}
 
     steps:
-    # ───────────────────────────────────────────────
+    # ──────────────────────────────────────────
     - name: Checkout repository
       uses: actions/checkout@v3
 
@@ -37,16 +37,18 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements_trellis.txt
 
-    # ── Mask secrets so they never leak to logs ──
+    # ── Mask secrets so they never appear in logs ──
     - name: Mask secrets
       run: |
         echo "::add-mask::$RUNPOD_USERNAME"
         echo "::add-mask::$RUNPOD_PASSWORD"
         echo "::add-mask::$TRELLIS_API_HOST"
+        echo "::add-mask::$TRELLIS_API_URL"
       env:
         RUNPOD_USERNAME:  ${{ secrets.RUNPOD_USERNAME }}
         RUNPOD_PASSWORD:  ${{ secrets.RUNPOD_PASSWORD }}
         TRELLIS_API_HOST: ${{ secrets.TRELLIS_API_HOST }}
+        TRELLIS_API_URL:  ${{ secrets.TRELLIS_API_URL }}
 
     # ── Main run ──
     - name: Run Trellis Generator
@@ -54,7 +56,8 @@ jobs:
       env:
         SUPABASE_URL:         ${{ secrets.SUPABASE_URL }}
         SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-        TRELLIS_API_HOST:     ${{ secrets.TRELLIS_API_HOST }}   # host only, no creds
+        TRELLIS_API_HOST:     ${{ secrets.TRELLIS_API_HOST }}   # host only (no creds)
+        TRELLIS_API_URL:      ${{ secrets.TRELLIS_API_URL }}    # full or host — for legacy check
         RUNPOD_USERNAME:      ${{ secrets.RUNPOD_USERNAME }}
         RUNPOD_PASSWORD:      ${{ secrets.RUNPOD_PASSWORD }}
       run: |
@@ -90,7 +93,7 @@ jobs:
           echo "🏁 Processing finished or auto-continue disabled."
         fi
 
-  # ───────────────────────────────────────────────
+  # ──────────────────────────────────────────
   trigger-next-run:
     needs: generate
     if: ${{ needs.generate.outputs.should_continue == 'true' }}
