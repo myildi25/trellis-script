@@ -17,7 +17,7 @@ on:
 jobs:
   generate:
     runs-on: ubuntu-latest
-    timeout-minutes: 360        # 6 h safety stop
+    timeout-minutes: 360        # 6 h safety cap
 
     outputs:
       should_continue: ${{ steps.check-continue.outputs.should_continue }}
@@ -27,7 +27,7 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v3
 
-    - name: Set up Python 3.10
+    - name: Set up Python 3.10
       uses: actions/setup-python@v4
       with:
         python-version: '3.10'
@@ -37,24 +37,24 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements_trellis.txt
 
-    # ── Mask secrets so they never appear in logs ──
+    # ── Mask secrets so they never leak to logs ──
     - name: Mask secrets
       run: |
         echo "::add-mask::$RUNPOD_USERNAME"
         echo "::add-mask::$RUNPOD_PASSWORD"
-        echo "::add-mask::$TRELLIS_API_URL"
+        echo "::add-mask::$TRELLIS_API_HOST"
       env:
         RUNPOD_USERNAME:  ${{ secrets.RUNPOD_USERNAME }}
         RUNPOD_PASSWORD:  ${{ secrets.RUNPOD_PASSWORD }}
-        TRELLIS_API_URL:  ${{ secrets.TRELLIS_API_URL }}
+        TRELLIS_API_HOST: ${{ secrets.TRELLIS_API_HOST }}
 
-    # ── Main run (5 h 55 m limit) ──
+    # ── Main run ──
     - name: Run Trellis Generator
       if: ${{ github.event.inputs.confirm == 'yes' }}
       env:
         SUPABASE_URL:         ${{ secrets.SUPABASE_URL }}
         SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-        TRELLIS_API_URL:      ${{ secrets.TRELLIS_API_URL }}
+        TRELLIS_API_HOST:     ${{ secrets.TRELLIS_API_HOST }}   # host only, no creds
         RUNPOD_USERNAME:      ${{ secrets.RUNPOD_USERNAME }}
         RUNPOD_PASSWORD:      ${{ secrets.RUNPOD_PASSWORD }}
       run: |
