@@ -110,30 +110,31 @@ class TrellisGenerator:
             raise ValueError("Missing TRELLIS_API_URL environment variable.")
         
     def setup_clients(self):
-       """Initialise Supabase + Trellis clients."""
+       """Initialise Supabase + Trellis clients (Basic‑Auth via URL)."""
        try:
+           # Supabase
            self.supabase = create_client(
                self.config['SUPABASE_URL'],
                self.config['SUPABASE_SERVICE_KEY']
            )
    
-           # RunPod / Trellis – explicit Basic Auth
-           user = os.getenv("RUNPOD_USERNAME")
-           pwd  = os.getenv("RUNPOD_PASSWORD")
+           # Build URL with Basic‑Auth creds
+           base_url = os.getenv("TRELLIS_API_HOST")  # host only, e.g. ygr2qv52nkrj75-7860.proxy.runpod.net
+           user     = os.getenv("RUNPOD_USERNAME")
+           pwd      = os.getenv("RUNPOD_PASSWORD")
    
-           if not (user and pwd):
-               raise ValueError("RUNPOD_USERNAME or RUNPOD_PASSWORD not set")
+           if not (base_url and user and pwd):
+               raise ValueError("Missing TRELLIS_API_HOST or RunPod credentials")
    
-           self.trellis_client = Client(
-               self.config['TRELLIS_API_URL'],
-               auth=(user, pwd)
-           )
+           api_url = f"https://{user}:{pwd}@{base_url}/"
    
+           self.trellis_client = Client(api_url)      # no auth kwarg
            self.logger.info("Clients initialized successfully")
    
        except Exception as e:
            self.logger.error(f"Failed to set up clients: {e}")
            raise
+
                
     def get_next_pending_item(self) -> Optional[Dict]:
         """Get the next single item that needs 3D model generation"""
