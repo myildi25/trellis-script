@@ -45,6 +45,8 @@ jobs:
         SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
         SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         TRELLIS_API_URL: ${{ secrets.TRELLIS_API_URL }}
+        RUNPOD_USERNAME: ${{ secrets.RUNPOD_USERNAME }}  # Added for authentication
+        RUNPOD_PASSWORD: ${{ secrets.RUNPOD_PASSWORD }}  # Added for authentication
       run: |
         echo "🚀 Starting Trellis 3D Generation"
         echo "⏰ Will run for up to 5 hours 55 minutes"
