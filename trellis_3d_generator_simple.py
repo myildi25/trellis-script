@@ -110,24 +110,24 @@ class TrellisGenerator:
             raise ValueError("Missing TRELLIS_API_URL environment variable.")
         
     def setup_clients(self):
-       """Initialise Supabase and Trellis clients.
-   
-       Notes
-       -----
-       * `SUPABASE_URL` and `SUPABASE_SERVICE_KEY` must be set in the environment.
-       * `TRELLIS_API_URL` should already include the RunPod credentials, e.g.
-         https://USER:PASS@pod-id.proxy.runpod.net/
-       """
+       """Initialise Supabase + Trellis clients."""
        try:
-           # ---------- Supabase ----------
            self.supabase = create_client(
                self.config['SUPABASE_URL'],
                self.config['SUPABASE_SERVICE_KEY']
            )
    
-           # ---------- Trellis / Gradio ----------
-           # Credentials are embedded in the URL, so no auth kwarg needed.
-           self.trellis_client = Client(self.config['TRELLIS_API_URL'])
+           # RunPod / Trellis – explicit Basic Auth
+           user = os.getenv("RUNPOD_USERNAME")
+           pwd  = os.getenv("RUNPOD_PASSWORD")
+   
+           if not (user and pwd):
+               raise ValueError("RUNPOD_USERNAME or RUNPOD_PASSWORD not set")
+   
+           self.trellis_client = Client(
+               self.config['TRELLIS_API_URL'],
+               auth=(user, pwd)
+           )
    
            self.logger.info("Clients initialized successfully")
    
